@@ -6,32 +6,41 @@ class BookDetailController extends ChangeNotifier {
   BookDetailController({
     required LibraryService service,
     required String catalogBookId,
-  })  : _service = service,
-        _catalogBookId = catalogBookId;
+  }) : _service = service,
+       _catalogBookId = catalogBookId;
 
   final LibraryService _service;
   final String _catalogBookId;
 
-  bool _loading = false;
-  String? _error;
-  BookDetail? _detail;
-
-  bool get loading => _loading;
-  String? get error => _error;
-  BookDetail? get detail => _detail;
-
+  bool loading = false;
+  String? error;
+  BookDetail? detail;
+  BookDetail? get _detail => detail;
+  String get catalogBookId => _catalogBookId;
+  
   Future<void> load() async {
-    _loading = true;
-    _error = null;
+    loading = true;
+    error = null;
     notifyListeners();
 
     try {
-      final d = await _service.fetchBookDetail(catalogBookId: _catalogBookId);
-      _detail = d;
+      var d = await _service.fetchBookDetail(catalogBookId: catalogBookId);
+      detail = d;
+      notifyListeners();
+
+      // intentar arreglar cover (solo si hace falta)
+      final fixed = await _service.ensureBookCover(detail: d);
+
+      if (fixed) {
+        // recargar detalle para ver cover actualizado
+        d = await _service.fetchBookDetail(catalogBookId: catalogBookId);
+        detail = d;
+        notifyListeners();
+      }
     } catch (e) {
-      _error = e.toString();
+      error = e.toString();
     } finally {
-      _loading = false;
+      loading = false;
       notifyListeners();
     }
   }

@@ -98,6 +98,14 @@ class _MyLibraryScreenState extends State<MyLibraryScreen> {
                 separatorBuilder: (_, __) => const Divider(height: 1),
                 itemBuilder: (context, i) {
                   final x = _items[i];
+                  final meta = x.cover;
+                  final url =
+                      (meta != null &&
+                          meta.isUsable &&
+                          meta.widthPx >= 100 &&
+                          meta.heightPx >= 150)
+                      ? meta.url
+                      : null;
 
                   return ListTile(
                     leading: ClipRRect(
@@ -105,11 +113,9 @@ class _MyLibraryScreenState extends State<MyLibraryScreen> {
                       child: SizedBox(
                         width: 42,
                         height: 60,
-                        child:
-                            (x.coverUrl != null &&
-                                x.coverUrl!.trim().isNotEmpty)
+                        child: (url != null)
                             ? Image.network(
-                                x.coverUrl!,
+                                url,
                                 fit: BoxFit.cover,
                                 errorBuilder: (_, __, ___) =>
                                     _coverPlaceholder(),
@@ -122,8 +128,8 @@ class _MyLibraryScreenState extends State<MyLibraryScreen> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-
                     subtitle: Text(_subtitle(x)),
+
                     onTap: () {
                       Navigator.push(
                         context,

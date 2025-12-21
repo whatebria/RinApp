@@ -8,10 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/repositories/library_repository.dart';
 
 class BookDetailScreen extends StatelessWidget {
-  const BookDetailScreen({
-    super.key,
-    required this.catalogBookId,
-  });
+  const BookDetailScreen({super.key, required this.catalogBookId});
 
   final String catalogBookId;
 
@@ -47,67 +44,68 @@ class _BookDetailView extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Detalle del libro'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: c.refresh,
-          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: c.refresh),
         ],
       ),
       body: c.loading && d == null
           ? const Center(child: CircularProgressIndicator())
           : c.error != null
-              ? ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    Text('Error: ${c.error}'),
-                    const SizedBox(height: 12),
-                    FilledButton(
-                      onPressed: c.load,
-                      child: const Text('Reintentar'),
+          ? ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                Text('Error: ${c.error}'),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: c.load,
+                  child: const Text('Reintentar'),
+                ),
+              ],
+            )
+          : d == null
+          ? ListView(
+              padding: const EdgeInsets.all(16),
+              children: const [Text('No se encontró el libro.')],
+            )
+          : RefreshIndicator(
+              onRefresh: () async => c.refresh(),
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _Header(detail: d),
+                  const SizedBox(height: 18),
+                  if ((d.description ?? '').trim().isNotEmpty) ...[
+                    Text(
+                      'Descripción',
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
+                    const SizedBox(height: 8),
+                    Text(d.description!),
+                    const SizedBox(height: 18),
                   ],
-                )
-              : d == null
-                  ? ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: const [
-                        Text('No se encontró el libro.'),
-                      ],
-                    )
-                  : RefreshIndicator(
-                      onRefresh: () async => c.refresh(),
-                      child: ListView(
-                        padding: const EdgeInsets.all(16),
-                        children: [
-                          _Header(detail: d),
-                          const SizedBox(height: 18),
-                          if ((d.description ?? '').trim().isNotEmpty) ...[
-                            Text('Descripción', style: Theme.of(context).textTheme.titleMedium),
-                            const SizedBox(height: 8),
-                            Text(d.description!),
-                            const SizedBox(height: 18),
-                          ],
-                          Text('Acciones', style: Theme.of(context).textTheme.titleMedium),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
-                            children: [
-                              FilledButton.icon(
-                                onPressed: () => _pickShelf(context),
-                                icon: const Icon(Icons.bookmark_outline),
-                                label: const Text('Cambiar estante'),
-                              ),
-                              OutlinedButton.icon(
-                                onPressed: () => _pickRating(context),
-                                icon: const Icon(Icons.star_outline),
-                                label: const Text('Cambiar rating'),
-                              ),
-                            ],
-                          ),
-                        ],
+                  Text(
+                    'Acciones',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      FilledButton.icon(
+                        onPressed: () => _pickShelf(context),
+                        icon: const Icon(Icons.bookmark_outline),
+                        label: const Text('Cambiar estante'),
                       ),
-                    ),
+                      OutlinedButton.icon(
+                        onPressed: () => _pickRating(context),
+                        icon: const Icon(Icons.star_outline),
+                        label: const Text('Cambiar rating'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
     );
   }
 
@@ -129,7 +127,9 @@ class _BookDetailView extends StatelessWidget {
             for (final s in shelves)
               ListTile(
                 title: Text(s),
-                trailing: (d.exclusiveShelf == s) ? const Icon(Icons.check) : null,
+                trailing: (d.exclusiveShelf == s)
+                    ? const Icon(Icons.check)
+                    : null,
                 onTap: () => Navigator.pop(context, s),
               ),
           ],
@@ -143,7 +143,9 @@ class _BookDetailView extends StatelessWidget {
       await c.setShelf(selected);
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -177,7 +179,9 @@ class _BookDetailView extends StatelessWidget {
       await c.setRating(selected);
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 }
@@ -189,6 +193,7 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final url = detail.bestCoverUrl;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -198,9 +203,9 @@ class _Header extends StatelessWidget {
           child: SizedBox(
             width: 110,
             height: 160,
-            child: (detail.coverUrl != null && detail.coverUrl!.trim().isNotEmpty)
+            child: (url != null && url.trim().isNotEmpty)
                 ? Image.network(
-                    detail.coverUrl!,
+                    url,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => _coverPlaceholder(),
                   )
@@ -214,14 +219,17 @@ class _Header extends StatelessWidget {
             children: [
               Text(
                 detail.title,
-                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  if (detail.yearPublished != null) _chip('Año', '${detail.yearPublished}'),
+                  if (detail.yearPublished != null)
+                    _chip('Año', '${detail.yearPublished}'),
                   if (detail.pages != null) _chip('Páginas', '${detail.pages}'),
                 ],
               ),
@@ -258,8 +266,13 @@ class _MyStatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final shelf = (detail.exclusiveShelf == null || detail.exclusiveShelf!.isEmpty) ? '—' : detail.exclusiveShelf!;
-    final rating = (detail.myRating == null || detail.myRating == 0) ? '—' : '⭐ ${detail.myRating}';
+    final shelf =
+        (detail.exclusiveShelf == null || detail.exclusiveShelf!.isEmpty)
+        ? '—'
+        : detail.exclusiveShelf!;
+    final rating = (detail.myRating == null || detail.myRating == 0)
+        ? '—'
+        : '⭐ ${detail.myRating}';
     final dateRead = detail.dateRead ?? '—';
 
     return Card(
@@ -270,7 +283,12 @@ class _MyStatusCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Mi estado', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              'Mi estado',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -290,7 +308,10 @@ class _MyStatusCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(k, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+        Text(
+          k,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
         const SizedBox(height: 2),
         Text(v),
       ],

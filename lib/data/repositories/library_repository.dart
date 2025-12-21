@@ -16,7 +16,10 @@ class LibraryRepository {
     final id = catalogBookId.trim();
     if (id.isEmpty) throw Exception('catalogBookId vacío');
 
-    final day = (dateAdded ?? DateTime.now()).toIso8601String().substring(0, 10);
+    final day = (dateAdded ?? DateTime.now()).toIso8601String().substring(
+      0,
+      10,
+    );
 
     await _sb.from('user_books').upsert({
       'user_id': user.id,
@@ -45,11 +48,7 @@ class LibraryRepository {
     final rows = shelves
         .map((s) => s.trim())
         .where((s) => s.isNotEmpty)
-        .map((s) => {
-              'user_id': user.id,
-              'catalog_book_id': id,
-              'shelf': s,
-            })
+        .map((s) => {'user_id': user.id, 'catalog_book_id': id, 'shelf': s})
         .toList();
 
     if (rows.isEmpty) return;
@@ -57,7 +56,7 @@ class LibraryRepository {
     await _sb.from('user_book_shelves').insert(rows);
   }
 
-   Future<List<Map<String, dynamic>>> fetchMyLibraryRaw({
+  Future<List<Map<String, dynamic>>> fetchMyLibraryRaw({
     int limit = 1000,
   }) async {
     final user = _sb.auth.currentUser;
@@ -66,25 +65,41 @@ class LibraryRepository {
     final data = await _sb
         .from('user_books')
         .select('''
-          my_rating,
-          date_read,
-          date_added,
-          exclusive_shelf,
-          catalog_book_id,
-          catalog_books!left(
-            id,
-            title,
-            cover_url,
-            pages,
-            year_published
-          )
-        ''')
+    my_rating,
+    date_read,
+    date_added,
+    exclusive_shelf,
+    catalog_book_id,
+    catalog_books!left(
+  id,
+  title,
+  cover_url,
+  isbn10,
+  isbn13,
+  openlibrary_cover_id,
+  cover_source,
+  cover_quality,
+  cover_w,
+  cover_h,
+  pages,
+  year_published
+)
+
+  ''')
         .eq('user_id', user.id)
         .order('date_added', ascending: false)
         .limit(limit);
 
     return (data as List).cast<Map<String, dynamic>>();
   }
+
+  Future<void> updateCatalogBookCover({
+    required String catalogBookId,
+    required Map<String, dynamic> patch,
+  }) async {
+    await _sb.from('catalog_books').update(patch).eq('id', catalogBookId);
+  }
+
   Future<BookDetail> fetchBookDetail({required String catalogBookId}) async {
     final user = _sb.auth.currentUser;
     if (user == null) throw Exception('No estás logueado');
@@ -96,6 +111,13 @@ class LibraryRepository {
           id,
           title,
           cover_url,
+          isbn10,
+          isbn13,
+          openlibrary_cover_id,
+          cover_source,
+          cover_quality,
+          cover_w,
+          cover_h,
           pages,
           year_published,
           description,
@@ -105,6 +127,7 @@ class LibraryRepository {
             date_read
           )
         ''')
+
         .eq('id', catalogBookId)
         .eq('user_book.user_id', user.id)
         .maybeSingle();
@@ -130,5 +153,15 @@ class LibraryRepository {
       'my_rating': myRating,
       'date_read': dateRead,
     }, onConflict: 'user_id,catalog_book_id');
+  }
+
+  Future<void> updateOpenLibraryCoverId({
+    required String catalogBookId,
+    required String openLibraryCoverId,
+  }) async {
+    await _sb
+        .from('catalog_books')
+        .update({'openlibrary_cover_id': openLibraryCoverId})
+        .eq('id', catalogBookId);
   }
 }
