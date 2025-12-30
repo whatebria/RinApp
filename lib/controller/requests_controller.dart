@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:rin/models/user_profile.dart';
 import '../services/friend/friend_service.dart';
 import '../services/profile_service.dart';
 

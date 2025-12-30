@@ -1,3 +1,5 @@
+import 'package:rin/utils/lib/di.dart';
+
 import '../../models/friend_list_item.dart';
 import 'friend_service.dart';
 import '../profile_service.dart';
@@ -7,7 +9,8 @@ class FriendsQueryService {
     FriendService? friendService,
     ProfileService? profileService,
   })  : _friendService = friendService ?? FriendService(),
-        _profileService = profileService ?? ProfileService();
+        _profileService = profileService ?? makeProfileService();
+
 
   final FriendService _friendService;
   final ProfileService _profileService;

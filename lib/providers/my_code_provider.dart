@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:rin/utils/lib/di.dart';
 
 import '../controller/my_code_controller.dart';
 import '../services/profile_service.dart';
@@ -19,7 +20,7 @@ class MyCodeProvider extends StatelessWidget {
     return ChangeNotifierProvider<MyCodeController>(
       create: (_) {
         final c = MyCodeController(
-          profileService: ProfileService(),
+          profileService: makeProfileService(),
         );
         if (autoLoad) c.load();
         return c;

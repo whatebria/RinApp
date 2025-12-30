@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:rin/models/user_profile.dart';
 import '../services/profile_service.dart';
 
 class MyCodeController extends ChangeNotifier {

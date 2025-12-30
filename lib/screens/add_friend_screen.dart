@@ -1,24 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:rin/controller/add_friend_controller.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../services/profile_service.dart';
-import '../services/friend/friend_service.dart';
+import 'package:rin/controller/add_friend_controller.dart';
+import 'package:rin/services/profile_service.dart';
+import 'package:rin/services/friend/friend_service.dart';
+import 'package:rin/data/repositories/profile_repository.dart';
 
 class AddFriendScreen extends StatelessWidget {
   const AddFriendScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final sb = Supabase.instance.client;
+
     return ChangeNotifierProvider(
       create: (_) => AddFriendController(
-        profileService: ProfileService(),
+        profileService: ProfileService(
+          repo: ProfileRepository(sb),
+        ),
         friendService: FriendService(),
       ),
       child: const _AddFriendView(),
     );
   }
 }
+
 
 class _AddFriendView extends StatefulWidget {
   const _AddFriendView();
