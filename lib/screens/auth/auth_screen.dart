@@ -1,21 +1,30 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:provider/provider.dart';
+import 'package:rin/controller/auth_controller.dart';
+import 'package:rin/providers/auth_provider.dart';
 
-class AuthScreen extends StatefulWidget {
+
+class AuthScreen extends StatelessWidget {
   const AuthScreen({super.key});
 
   @override
-  State<AuthScreen> createState() => _AuthScreenState();
+  Widget build(BuildContext context) {
+    return const AuthProvider(
+      child: _AuthView(),
+    );
+  }
 }
 
-class _AuthScreenState extends State<AuthScreen> {
+class _AuthView extends StatefulWidget {
+  const _AuthView();
+
+  @override
+  State<_AuthView> createState() => _AuthViewState();
+}
+
+class _AuthViewState extends State<_AuthView> {
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
-
-  bool _loading = false;
-  String? _error;
-
-  SupabaseClient get _sb => Supabase.instance.client;
 
   @override
   void dispose() {
@@ -24,64 +33,21 @@ class _AuthScreenState extends State<AuthScreen> {
     super.dispose();
   }
 
-  Future<void> _signUp() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-
-    try {
-      await _sb.auth.signUp(
-        email: _emailCtrl.text.trim(),
-        password: _passCtrl.text,
-      );
-    } on AuthException catch (e) {
-      setState(() => _error = e.message);
-    } catch (e) {
-      setState(() => _error = e.toString());
-    } finally {
-      setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _signIn() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-
-    try {
-      await _sb.auth.signInWithPassword(
-        email: _emailCtrl.text.trim(),
-        password: _passCtrl.text,
-      );
-    } on AuthException catch (e) {
-      setState(() => _error = e.message);
-    } catch (e) {
-      setState(() => _error = e.toString());
-    } finally {
-      setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _signOut() async {
-    await _sb.auth.signOut();
-  }
-
   @override
   Widget build(BuildContext context) {
-    final user = _sb.auth.currentUser;
+    final c = context.watch<AuthController>();
+    final user = c.user;
 
     return Scaffold(
       appBar: AppBar(title: const Text("Auth (Supabase)")),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: user == null ? _loggedOutUi() : _loggedInUi(user.id),
+        child: user == null ? _loggedOutUi(context, c) : _loggedInUi(context, c, user.id),
       ),
     );
   }
 
-  Widget _loggedOutUi() {
+  Widget _loggedOutUi(BuildContext context, AuthController c) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -98,25 +64,38 @@ class _AuthScreenState extends State<AuthScreen> {
         ),
         const SizedBox(height: 16),
 
-        if (_error != null) ...[
-          Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+        if (c.error != null) ...[
+          Text(
+            c.error!,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
           const SizedBox(height: 12),
         ],
 
         FilledButton(
-          onPressed: _loading ? null : _signUp,
-          child: _loading ? const Text("...") : const Text("Registrarse"),
+          onPressed: c.loading
+              ? null
+              : () => context.read<AuthController>().signUp(
+                    email: _emailCtrl.text,
+                    password: _passCtrl.text,
+                  ),
+          child: Text(c.loading ? "..." : "Registrarse"),
         ),
         const SizedBox(height: 8),
         OutlinedButton(
-          onPressed: _loading ? null : _signIn,
+          onPressed: c.loading
+              ? null
+              : () => context.read<AuthController>().signIn(
+                    email: _emailCtrl.text,
+                    password: _passCtrl.text,
+                  ),
           child: const Text("Iniciar sesión"),
         ),
       ],
     );
   }
 
-  Widget _loggedInUi(String uid) {
+  Widget _loggedInUi(BuildContext context, AuthController c, String uid) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -125,7 +104,7 @@ class _AuthScreenState extends State<AuthScreen> {
         Text("User ID:\n$uid"),
         const SizedBox(height: 16),
         OutlinedButton(
-          onPressed: _signOut,
+          onPressed: c.loading ? null : () => context.read<AuthController>().signOut(),
           child: const Text("Cerrar sesión"),
         ),
       ],
