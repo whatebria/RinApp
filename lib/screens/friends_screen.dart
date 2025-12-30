@@ -1,108 +1,61 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:rin/screens/add_friend_screen.dart';
 import 'package:rin/screens/my_code_screen.dart';
 import 'package:rin/screens/requests_screen.dart';
-import '../models/friend_list_item.dart';
-import '../services/friend/friends_query_service.dart';
 
-enum FriendsSort {
-  name,
-  newest,
-}
+import '../controller/friends_controller.dart';
+import '../providers/friends_provider.dart';
 
-class FriendsScreen extends StatefulWidget {
+class FriendsScreen extends StatelessWidget {
   const FriendsScreen({super.key});
 
   @override
-  State<FriendsScreen> createState() => _FriendsScreenState();
+  Widget build(BuildContext context) {
+    return const FriendsProvider(
+      child: _FriendsView(),
+    );
+  }
 }
 
-class _FriendsScreenState extends State<FriendsScreen> {
-  final _query = FriendsQueryService();
-  final _searchCtrl = TextEditingController();
-
-  bool _loading = true;
-  String? _error;
-
-  List<FriendListItem> _allFriends = [];
-  List<FriendListItem> _visibleFriends = [];
-
-  FriendsSort _sort = FriendsSort.name;
+class _FriendsView extends StatefulWidget {
+  const _FriendsView();
 
   @override
-  void initState() {
-    super.initState();
-    _load();
+  State<_FriendsView> createState() => _FriendsViewState();
+}
 
-    // Cada vez que cambia el texto de búsqueda, re-filtramos
-    _searchCtrl.addListener(_applyFilters);
-  }
+class _FriendsViewState extends State<_FriendsView> {
+  final _searchCtrl = TextEditingController();
 
   @override
   void dispose() {
-    _searchCtrl.removeListener(_applyFilters);
     _searchCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-
-    try {
-      final friends = await _query.fetchFriendsList();
-
-      if (!mounted) return;
-      setState(() {
-        _allFriends = friends;
-      });
-
-      _applyFilters(); // aplica search + orden al resultado recién cargado
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _error = e.toString());
-    } finally {
-      if (!mounted) return;
-      setState(() => _loading = false);
+  void _syncTextIfNeeded(FriendsController c) {
+    // Mantener el TextField consistente si el controller cambia (ej: clearSearch)
+    if (_searchCtrl.text != c.search) {
+      _searchCtrl.value = _searchCtrl.value.copyWith(
+        text: c.search,
+        selection: TextSelection.collapsed(offset: c.search.length),
+        composing: TextRange.empty,
+      );
     }
-  }
-
-  void _applyFilters() {
-    final q = _searchCtrl.text.trim().toLowerCase();
-
-    // 1) filtrar
-    var list = _allFriends.where((f) {
-      if (q.isEmpty) return true;
-      return f.titleText.toLowerCase().contains(q) ||
-          f.friendCode.toLowerCase().contains(q);
-    }).toList();
-
-    // 2) ordenar
-    switch (_sort) {
-      case FriendsSort.name:
-        list.sort((a, b) => a.titleText.toLowerCase().compareTo(b.titleText.toLowerCase()));
-        break;
-      case FriendsSort.newest:
-        list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        break;
-    }
-
-    // 3) actualizar lo visible
-    setState(() {
-      _visibleFriends = list;
-    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final c = context.watch<FriendsController>();
+    _syncTextIfNeeded(c);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Amigos"),
         actions: [
           IconButton(
-            onPressed: _loading ? null : _load,
+            onPressed: c.loading ? null : c.load,
             icon: const Icon(Icons.refresh),
             tooltip: "Recargar",
           ),
@@ -135,11 +88,8 @@ class _FriendsScreenState extends State<FriendsScreen> {
             },
           ),
           PopupMenuButton<FriendsSort>(
-            initialValue: _sort,
-            onSelected: (value) {
-              setState(() => _sort = value);
-              _applyFilters();
-            },
+            initialValue: c.sort,
+            onSelected: c.setSort,
             itemBuilder: (context) => const [
               PopupMenuItem(
                 value: FriendsSort.name,
@@ -155,54 +105,63 @@ class _FriendsScreenState extends State<FriendsScreen> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: _loading
+        child: c.loading
             ? const Center(child: CircularProgressIndicator())
-            : _error != null
-                ? _errorState()
+            : c.error != null
+                ? _errorState(context, c.error!, c.load)
                 : Column(
                     children: [
-                      _searchBar(),
+                      _searchBar(c),
                       const SizedBox(height: 12),
-                      Expanded(child: _friendsList()),
+                      Expanded(
+                        child: _friendsList(
+                          visible: c.visibleFriends,
+                          allCount: c.allFriends.length,
+                        ),
+                      ),
                     ],
                   ),
       ),
     );
   }
 
-  Widget _searchBar() {
+  Widget _searchBar(FriendsController c) {
     return TextField(
       controller: _searchCtrl,
+      onChanged: c.setSearch,
       decoration: InputDecoration(
         labelText: "Buscar amigo",
         hintText: "Nombre o código",
         prefixIcon: const Icon(Icons.search),
-        suffixIcon: _searchCtrl.text.isEmpty
+        suffixIcon: c.search.trim().isEmpty
             ? null
             : IconButton(
                 icon: const Icon(Icons.clear),
                 onPressed: () {
-                  _searchCtrl.clear();
-                  // listener llama _applyFilters()
+                  c.clearSearch();
+                  FocusScope.of(context).unfocus();
                 },
               ),
       ),
     );
   }
 
-  Widget _friendsList() {
-    if (_visibleFriends.isEmpty) {
-      if (_allFriends.isEmpty) {
+  Widget _friendsList({
+    required List visible,
+    required int allCount,
+  }) {
+    if (visible.isEmpty) {
+      if (allCount == 0) {
         return const Center(child: Text("Aún no tienes amigos."));
       }
       return const Center(child: Text("No hay resultados para tu búsqueda."));
     }
 
     return ListView.separated(
-      itemCount: _visibleFriends.length,
+      itemCount: visible.length,
       separatorBuilder: (_, __) => const Divider(height: 1),
       itemBuilder: (context, i) {
-        final f = _visibleFriends[i];
+        final f = visible[i];
 
         return ListTile(
           leading: const Icon(Icons.person),
@@ -217,14 +176,18 @@ class _FriendsScreenState extends State<FriendsScreen> {
     );
   }
 
-  Widget _errorState() {
+  Widget _errorState(
+    BuildContext context,
+    String error,
+    VoidCallback retry,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Error: $_error"),
+        Text("Error: $error"),
         const SizedBox(height: 12),
         OutlinedButton(
-          onPressed: _load,
+          onPressed: retry,
           child: const Text("Reintentar"),
         ),
       ],
