@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:rin/controller/goodreads_import_controller.dart';
+import 'package:rin/providers/goodreads_import_provider.dart';
 import 'package:rin/screens/widgets/update_catalog_button.dart';
 
-import '../controller/goodreads_import_controller.dart';
-import '../providers/goodreads_import_provider.dart';
 
 class GoodreadsImportScreen extends StatelessWidget {
   const GoodreadsImportScreen({super.key});
