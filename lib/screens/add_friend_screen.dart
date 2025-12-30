@@ -1,21 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:rin/controller/add_friend_controller.dart';
+
 import '../services/profile_service.dart';
 import '../services/friend/friend_service.dart';
 
-class AddFriendScreen extends StatefulWidget {
+class AddFriendScreen extends StatelessWidget {
   const AddFriendScreen({super.key});
 
   @override
-  State<AddFriendScreen> createState() => _AddFriendScreenState();
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => AddFriendController(
+        profileService: ProfileService(),
+        friendService: FriendService(),
+      ),
+      child: const _AddFriendView(),
+    );
+  }
 }
 
-class _AddFriendScreenState extends State<AddFriendScreen> {
-  final _codeCtrl = TextEditingController();
-  final _profileService = ProfileService();
-  final _friendService = FriendService();
+class _AddFriendView extends StatefulWidget {
+  const _AddFriendView();
 
-  bool _loading = false;
-  String? _status;
+  @override
+  State<_AddFriendView> createState() => _AddFriendViewState();
+}
+
+class _AddFriendViewState extends State<_AddFriendView> {
+  final _codeCtrl = TextEditingController();
 
   @override
   void dispose() {
@@ -24,38 +37,17 @@ class _AddFriendScreenState extends State<AddFriendScreen> {
   }
 
   Future<void> _send() async {
-    final code = _codeCtrl.text.trim();
-    if (code.isEmpty) {
-      setState(() => _status = "Pega un código");
-      return;
-    }
+    final c = context.read<AddFriendController>();
+    await c.send(friendCode: _codeCtrl.text);
 
-    setState(() {
-      _loading = true;
-      _status = null;
-    });
-
-    try {
-      // 1) Convertir friend_code -> user_id
-      final profile = await _profileService.findByFriendCode(code);
-      if (profile == null) {
-        setState(() => _status = "No existe un usuario con ese código");
-        return;
-      }
-
-      // 2) Crear friend_request
-      await _friendService.sendRequest(toUserId: profile.id);
-
-      setState(() => _status = "✅ Solicitud enviada a ${profile.displayName.isEmpty ? profile.friendCode : profile.displayName}");
-    } catch (e) {
-      setState(() => _status = "❌ Error: $e");
-    } finally {
-      setState(() => _loading = false);
-    }
+    // opcional: ocultar teclado
+    if (mounted) FocusScope.of(context).unfocus();
   }
 
   @override
   Widget build(BuildContext context) {
+    final c = context.watch<AddFriendController>();
+
     return Scaffold(
       appBar: AppBar(title: const Text("Agregar amigo")),
       body: Padding(
@@ -71,16 +63,17 @@ class _AddFriendScreenState extends State<AddFriendScreen> {
               decoration: const InputDecoration(
                 labelText: "Ej: ABC-7K2Q",
               ),
+              onSubmitted: (_) => c.loading ? null : _send(),
             ),
             const SizedBox(height: 12),
             FilledButton(
-              onPressed: _loading ? null : _send,
-              child: Text(_loading ? "Enviando..." : "Enviar solicitud"),
+              onPressed: c.loading ? null : _send,
+              child: Text(c.loading ? "Enviando..." : "Enviar solicitud"),
             ),
-            if (_status != null) ...[
+            if (c.status != null) ...[
               const SizedBox(height: 12),
-              Text(_status!),
-            ]
+              Text(c.status!),
+            ],
           ],
         ),
       ),

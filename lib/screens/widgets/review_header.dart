@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+// ignore: unused_element
 class _ReviewsHeader extends StatelessWidget {
   final double avg;
   final int count;
@@ -33,6 +34,7 @@ class _ReviewsHeader extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _ReviewTile extends StatelessWidget {
   final String displayName;
   final int rating;
