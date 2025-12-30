@@ -2,136 +2,290 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:rin/models/my_library_item.dart';
-import 'package:rin/screens/book_detail_screen.dart';
 
 import '../controller/my_library_controller.dart';
 import '../providers/my_library_provider.dart';
+import 'shelf_detail_screen.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class MyLibraryScreen extends StatelessWidget {
   const MyLibraryScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const MyLibraryProvider(
-      child: _MyLibraryView(),
-    );
+    return const MyLibraryProvider(child: _MyLibraryView());
   }
 }
 
 class _MyLibraryView extends StatelessWidget {
   const _MyLibraryView();
 
-  String _subtitle(MyLibraryItem x) {
-    final parts = <String>[];
-    if (x.exclusiveShelf != null && x.exclusiveShelf!.isNotEmpty) {
-      parts.add(x.exclusiveShelf!);
-    }
-    if (x.myRating != null && x.myRating! > 0) parts.add('⭐ ${x.myRating}');
-    if (x.pages != null && x.pages! > 0) parts.add('${x.pages} págs');
-    return parts.join(' • ');
-  }
-
   @override
   Widget build(BuildContext context) {
     final c = context.watch<MyLibraryController>();
-    final items = c.items;
+    final entries = context
+        .select<
+          MyLibraryController,
+          List<MapEntry<String, List<MyLibraryItem>>>
+        >((c) => c.itemsByShelf.entries.toList(growable: false));
+
+    final loading = context.select<MyLibraryController, bool>((c) => c.loading);
+    final error = context.select<MyLibraryController, String?>((c) => c.error);
+    final hasItems = context.select<MyLibraryController, bool>(
+      (c) => c.items.isNotEmpty,
+    );
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mis libros'),
+        title: const Text('Mis estanterías'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: c.loading ? null : c.load,
+            onPressed: loading ? null : c.load,
           ),
         ],
       ),
       body: RefreshIndicator(
         onRefresh: c.refresh,
-        child: c.loading && items.isEmpty
+        child: loading && hasItems
             ? const Center(child: CircularProgressIndicator())
-            : c.error != null
-                ? ListView(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text('Error: ${c.error}'),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: OutlinedButton(
-                          onPressed: c.load,
-                          child: const Text('Reintentar'),
-                        ),
-                      ),
-                    ],
-                  )
-                : items.isEmpty
-                    ? ListView(
-                        children: const [
-                          Padding(
-                            padding: EdgeInsets.all(16),
-                            child: Text('Aún no tienes libros agregados.'),
-                          ),
-                        ],
-                      )
-                    : ListView.separated(
-                        itemCount: items.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (context, i) {
-                          final x = items[i];
-                          final meta = x.cover;
-                          final url = (meta != null &&
-                                  meta.isUsable &&
-                                  meta.widthPx >= 100 &&
-                                  meta.heightPx >= 150)
-                              ? meta.url
-                              : null;
+            : error != null
+            ? ListView(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text('Error: ${error}'),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: OutlinedButton(
+                      onPressed: c.load,
+                      child: const Text('Reintentar'),
+                    ),
+                  ),
+                ],
+              )
+            : entries.isEmpty
+            ? ListView(
+                children: const [
+                  Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text('Aún no tienes libros agregados.'),
+                  ),
+                ],
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                itemCount: entries.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (context, i) {
+                  final entry = entries[i];
+                  final shelfName = entry.key;
+                  final list = entry.value;
 
-                          return ListTile(
-                            leading: ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: SizedBox(
-                                width: 42,
-                                height: 60,
-                                child: (url != null)
-                                    ? Image.network(
-                                        url,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) =>
-                                            _coverPlaceholder(),
-                                      )
-                                    : _coverPlaceholder(),
-                              ),
-                            ),
-                            title: Text(
-                              x.title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            subtitle: Text(_subtitle(x)),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                CupertinoPageRoute(
-                                  builder: (_) => BookDetailScreen(
-                                    catalogBookId: x.catalogBookId,
-                                  ),
-                                ),
-                              );
-                            },
-                          );
-                        },
+                  return _ShelfSection(
+                    shelfName: shelfName,
+                    items: list,
+                    onOpen: () {
+                      final controller = context.read<MyLibraryController>();
+
+                      Navigator.push(
+                        context,
+                        CupertinoPageRoute(
+                          builder: (_) => ChangeNotifierProvider.value(
+                            value: controller,
+                            child: ShelfDetailScreen(shelfName: shelfName),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+      ),
+    );
+  }
+}
+
+class _ShelfSection extends StatelessWidget {
+  const _ShelfSection({
+    required this.shelfName,
+    required this.items,
+    required this.onOpen,
+  });
+
+  final String shelfName;
+  final List<MyLibraryItem> items;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final preview = items.take(6).toList();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onOpen,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: theme.dividerColor.withOpacity(0.4)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        shelfName,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    _CountChip(count: items.length),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: onOpen,
+                      child: const Text('Ver todo'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                // Preview horizontal
+                SizedBox(
+                  height: 92,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: preview.length + 1, // +1 para chevron
+                    separatorBuilder: (_, __) => const SizedBox(width: 10),
+                    itemBuilder: (context, i) {
+                      if (i == preview.length) {
+                        return _MoreCard(onTap: onOpen);
+                      }
+                      final x = preview[i];
+                      return _CoverThumb(item: x);
+                    },
+                  ),
+                ),
+
+                // Mini hint (opcional)
+                if (items.length > preview.length) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    'Mostrando ${preview.length} de ${items.length}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.hintColor,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CountChip extends StatelessWidget {
+  const _CountChip({required this.count});
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.secondaryContainer.withOpacity(0.7),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        '$count',
+        style: theme.textTheme.labelMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _CoverThumb extends StatelessWidget {
+  const _CoverThumb({required this.item});
+
+  final MyLibraryItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final meta = item.cover;
+    final url =
+        (meta != null &&
+            meta.isUsable &&
+            meta.widthPx >= 100 &&
+            meta.heightPx >= 150)
+        ? meta.url
+        : null;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: SizedBox(
+        width: 56,
+        height: 84,
+        child: (url != null)
+            ? CachedNetworkImage(
+                imageUrl: url,
+                fit: BoxFit.cover,
+                memCacheWidth: 112,
+                placeholder: (_, __) => _placeholder(),
+                errorWidget: (_, __, ___) => _placeholder(),
+              )
+            : _placeholder(),
       ),
     );
   }
 
-  Widget _coverPlaceholder() {
+  Widget _placeholder() {
     return Container(
       alignment: Alignment.center,
       color: Colors.black12,
       child: const Icon(Icons.book_outlined, size: 22),
+    );
+  }
+}
+
+class _MoreCard extends StatelessWidget {
+  const _MoreCard({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Ink(
+        width: 56,
+        height: 84,
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceVariant.withOpacity(0.7),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: theme.dividerColor.withOpacity(0.35)),
+        ),
+        child: const Icon(Icons.chevron_right),
+      ),
     );
   }
 }

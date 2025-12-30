@@ -1,28 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:rin/controller/my_library_controller.dart';
+import 'package:rin/data/repositories/library_repository.dart';
+import 'package:rin/services/library_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-import '../controller/my_library_controller.dart';
-import '../services/library_service.dart';
-import '../data/repositories/library_repository.dart';
 
 class MyLibraryProvider extends StatelessWidget {
   const MyLibraryProvider({
     super.key,
     required this.child,
     this.autoLoad = true,
-  });
+  }) : controller = null;
+
+  const MyLibraryProvider.value({
+    super.key,
+    required this.child,
+    required this.controller,
+  }) : autoLoad = false;
 
   final Widget child;
   final bool autoLoad;
+  final MyLibraryController? controller;
 
   @override
   Widget build(BuildContext context) {
-    final sb = Supabase.instance.client;
+    if (controller != null) {
+      return ChangeNotifierProvider.value(
+        value: controller!,
+        child: child,
+      );
+    }
 
-    final service = LibraryService(
-      repo: LibraryRepository(sb),
-    );
+    final sb = Supabase.instance.client;
+    final service = LibraryService(repo: LibraryRepository(sb));
 
     return ChangeNotifierProvider<MyLibraryController>(
       create: (_) {

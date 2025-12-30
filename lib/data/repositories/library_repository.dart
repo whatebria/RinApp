@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:rin/models/book_detail.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -57,38 +58,31 @@ class LibraryRepository {
   }
 
   Future<List<Map<String, dynamic>>> fetchMyLibraryRaw({
-    int limit = 1000,
+    int limit = 100,
   }) async {
     final user = _sb.auth.currentUser;
+    debugPrint('currentUser: ${user?.id}');
+
     if (user == null) throw Exception('No estás logueado');
 
     final data = await _sb
         .from('user_books')
         .select('''
     my_rating,
-    date_read,
-    date_added,
     exclusive_shelf,
     catalog_book_id,
     catalog_books!left(
-  id,
-  title,
-  cover_url,
-  isbn10,
-  isbn13,
-  openlibrary_cover_id,
-  cover_source,
-  cover_quality,
-  cover_w,
-  cover_h,
-  pages,
-  year_published
-)
-
+      id,
+      title,
+      cover_url,
+      cover_w,
+      cover_h
+    )
   ''')
         .eq('user_id', user.id)
         .order('date_added', ascending: false)
         .limit(limit);
+
 
     return (data as List).cast<Map<String, dynamic>>();
   }
@@ -101,12 +95,12 @@ class LibraryRepository {
   }
 
   Future<BookDetail> fetchBookDetail({required String catalogBookId}) async {
-  final user = _sb.auth.currentUser;
-  if (user == null) throw Exception('No estás logueado');
+    final user = _sb.auth.currentUser;
+    if (user == null) throw Exception('No estás logueado');
 
-  final data = await _sb
-      .from('catalog_books')
-      .select('''
+    final data = await _sb
+        .from('catalog_books')
+        .select('''
         id,
         title,
         cover_url,
@@ -136,15 +130,15 @@ class LibraryRepository {
           updated_at
         )
       ''')
-      .eq('id', catalogBookId)
-      .eq('user_book.user_id', user.id)
-      .eq('my_review.user_id', user.id)
-      .maybeSingle();
+        .eq('id', catalogBookId)
+        .eq('user_book.user_id', user.id)
+        .eq('my_review.user_id', user.id)
+        .maybeSingle();
 
-  if (data == null) throw Exception('Libro no encontrado');
+    if (data == null) throw Exception('Libro no encontrado');
 
-  return BookDetail.fromMap(data);
-}
+    return BookDetail.fromMap(data);
+  }
 
   Future<void> upsertMyBook({
     required String catalogBookId,
@@ -163,8 +157,6 @@ class LibraryRepository {
       'date_read': dateRead,
     }, onConflict: 'user_id,catalog_book_id');
   }
-
-  
 
   Future<void> updateOpenLibraryCoverId({
     required String catalogBookId,
