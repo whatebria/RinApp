@@ -101,41 +101,50 @@ class LibraryRepository {
   }
 
   Future<BookDetail> fetchBookDetail({required String catalogBookId}) async {
-    final user = _sb.auth.currentUser;
-    if (user == null) throw Exception('No estás logueado');
+  final user = _sb.auth.currentUser;
+  if (user == null) throw Exception('No estás logueado');
 
-    // 1) Trae catálogo + join a user_books del usuario
-    final data = await _sb
-        .from('catalog_books')
-        .select('''
-          id,
-          title,
-          cover_url,
-          isbn10,
-          isbn13,
-          openlibrary_cover_id,
-          cover_source,
-          cover_quality,
-          cover_w,
-          cover_h,
-          pages,
-          year_published,
-          description,
-          user_book:user_books!left(
-            exclusive_shelf,
-            my_rating,
-            date_read
-          )
-        ''')
+  final data = await _sb
+      .from('catalog_books')
+      .select('''
+        id,
+        title,
+        cover_url,
+        isbn10,
+        isbn13,
+        openlibrary_cover_id,
+        cover_source,
+        cover_quality,
+        cover_w,
+        cover_h,
+        pages,
+        year_published,
+        description,
 
-        .eq('id', catalogBookId)
-        .eq('user_book.user_id', user.id)
-        .maybeSingle();
+        user_book:user_books!left(
+          user_id,
+          exclusive_shelf,
+          my_rating,
+          date_read
+        ),
 
-    if (data == null) throw Exception('Libro no encontrado');
+        my_review:book_reviews!left(
+          user_id,
+          rating,
+          body,
+          contains_spoilers,
+          updated_at
+        )
+      ''')
+      .eq('id', catalogBookId)
+      .eq('user_book.user_id', user.id)
+      .eq('my_review.user_id', user.id)
+      .maybeSingle();
 
-    return BookDetail.fromMap(data);
-  }
+  if (data == null) throw Exception('Libro no encontrado');
+
+  return BookDetail.fromMap(data);
+}
 
   Future<void> upsertMyBook({
     required String catalogBookId,
@@ -155,6 +164,8 @@ class LibraryRepository {
     }, onConflict: 'user_id,catalog_book_id');
   }
 
+  
+
   Future<void> updateOpenLibraryCoverId({
     required String catalogBookId,
     required String openLibraryCoverId,
@@ -163,5 +174,44 @@ class LibraryRepository {
         .from('catalog_books')
         .update({'openlibrary_cover_id': openLibraryCoverId})
         .eq('id', catalogBookId);
+  }
+
+  Future<String> ensureCatalogBook({
+    required String source,
+    required String sourceId,
+    required String title,
+    required String titleNorm,
+    String isbn10 = '',
+    String isbn13 = '',
+    String publisher = '',
+    String binding = '',
+    int? pages,
+    int? yearPublished,
+    String coverUrl = '',
+  }) async {
+    final user = _sb.auth.currentUser;
+    if (user == null) throw Exception('No estás logueado');
+
+    final res = await _sb.rpc(
+      'ensure_catalog_book',
+      params: {
+        'p_source': source,
+        'p_source_id': sourceId,
+        'p_title': title,
+        'p_title_norm': titleNorm,
+        'p_isbn10': isbn10,
+        'p_isbn13': isbn13,
+        'p_publisher': publisher,
+        'p_binding': binding,
+        'p_pages': pages,
+        'p_year_published': yearPublished,
+        'p_cover_url': coverUrl,
+      },
+    );
+
+    // Supabase devuelve el uuid como string
+    final id = res?.toString().trim() ?? '';
+    if (id.isEmpty) throw Exception('ensure_catalog_book devolvió vacío');
+    return id;
   }
 }

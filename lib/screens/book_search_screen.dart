@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:rin/models/book_search_item.dart';
+import 'package:rin/screens/book_detail_screen.dart';
 import 'package:rin/services/book_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -19,7 +20,7 @@ class _BookSearchScreenState extends State<BookSearchScreen> {
   final _controller = TextEditingController();
   Timer? _debounce;
 
-  late final BookService _service;
+  late final BookService _bookService;
 
   bool _loading = false;
   String? _error;
@@ -30,7 +31,7 @@ class _BookSearchScreenState extends State<BookSearchScreen> {
     super.initState();
     final sb = Supabase.instance.client;
 
-    _service = BookService(
+    _bookService = BookService(
       remote: BookRemoteDatasource(sb),
       library: LibraryRepository(sb),
     );
@@ -66,7 +67,7 @@ class _BookSearchScreenState extends State<BookSearchScreen> {
     });
 
     try {
-      final items = await _service.search(query: q, limit: 20);
+      final items = await _bookService.search(query: q, limit: 20);
       if (!mounted) return;
       setState(() {
         _items = items;
@@ -78,21 +79,6 @@ class _BookSearchScreenState extends State<BookSearchScreen> {
         _error = e.toString();
         _loading = false;
       });
-    }
-  }
-
-  Future<void> _add(BookSearchItem b) async {
-    try {
-      await _service.add(book: b, exclusiveShelf: 'to-read');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Agregado: ${b.title}')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
     }
   }
 
@@ -134,7 +120,9 @@ class _BookSearchScreenState extends State<BookSearchScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Text(
                 _error!,
-                style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.error),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
               ),
             ),
           Expanded(
@@ -142,7 +130,9 @@ class _BookSearchScreenState extends State<BookSearchScreen> {
                 ? Padding(
                     padding: const EdgeInsets.all(16),
                     child: Text(
-                      _loading ? 'Buscando...' : 'Escribe algo para buscar libros.',
+                      _loading
+                          ? 'Buscando...'
+                          : 'Escribe algo para buscar libros.',
                       style: theme.textTheme.bodyMedium,
                     ),
                   )
@@ -152,11 +142,29 @@ class _BookSearchScreenState extends State<BookSearchScreen> {
                     itemBuilder: (context, i) {
                       final b = _items[i];
                       final subtitleParts = <String>[];
-                      if (b.yearPublished != null) subtitleParts.add('${b.yearPublished}');
-                      if (b.isbn13 != null) subtitleParts.add('ISBN13: ${b.isbn13}');
+                      if (b.yearPublished != null) {
+                        subtitleParts.add('${b.yearPublished}');
+                      }
+                      if (b.isbn13 != null) {
+                        subtitleParts.add('ISBN13: ${b.isbn13}');
+                      }
                       final subtitle = subtitleParts.join(' • ');
 
                       return ListTile(
+                        onTap: () async {
+                          final catalogId = await _bookService.ensureCatalogId(
+                            book: b,
+                          );
+                          if (!context.mounted) return;
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  BookDetailScreen(catalogBookId: catalogId),
+                            ),
+                          );
+                        },
+
                         leading: (b.coverUrl != null && b.coverUrl!.isNotEmpty)
                             ? ClipRRect(
                                 borderRadius: BorderRadius.circular(8),
@@ -165,16 +173,17 @@ class _BookSearchScreenState extends State<BookSearchScreen> {
                                   width: 42,
                                   height: 60,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => const Icon(Icons.book_outlined),
+                                  errorBuilder: (_, __, ___) =>
+                                      const Icon(Icons.book_outlined),
                                 ),
                               )
                             : const Icon(Icons.book_outlined),
-                        title: Text(b.title, maxLines: 2, overflow: TextOverflow.ellipsis),
-                        subtitle: subtitle.isEmpty ? null : Text(subtitle),
-                        trailing: FilledButton.tonal(
-                          onPressed: () => _add(b),
-                          child: const Text('Agregar'),
+                        title: Text(
+                          b.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
+                        subtitle: subtitle.isEmpty ? null : Text(subtitle),
                       );
                     },
                   ),

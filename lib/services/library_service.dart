@@ -86,4 +86,15 @@ class LibraryService {
         (fixed.cover?.widthPx != detail.cover?.widthPx) ||
         (fixed.cover?.heightPx != detail.cover?.heightPx);
   }
+
+  Future<void> addToLibrary({
+  required String catalogBookId,
+  String exclusiveShelf = 'to-read',
+}) {
+  return _repo.addToLibrary(
+    catalogBookId: catalogBookId,
+    exclusiveShelf: exclusiveShelf,
+  );
+}
+
 }

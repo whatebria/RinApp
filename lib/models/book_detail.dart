@@ -14,6 +14,9 @@ class BookDetail {
     this.description,
     this.exclusiveShelf,
     this.myRating,
+    this.myReviewRating,
+    this.myReviewBody,
+    this.myReviewContainsSpoiler,
     this.dateRead,
   });
 
@@ -36,6 +39,11 @@ class BookDetail {
   final int? myRating;
   final String? dateRead;
 
+  // My review (desde book_reviews)
+  final int? myReviewRating;
+  final String? myReviewBody;
+  final bool? myReviewContainsSpoiler;
+
   String? get bestIsbn => (isbn13 != null && isbn13!.trim().isNotEmpty)
       ? isbn13!.trim()
       : (isbn10 != null && isbn10!.trim().isNotEmpty ? isbn10!.trim() : null);
@@ -43,47 +51,65 @@ class BookDetail {
   String? get bestCoverUrl => cover?.url ?? coverUrl;
 
   factory BookDetail.fromMap(Map<String, dynamic> m) {
-    final ub = m['user_book'];
-
-    Map<String, dynamic>? ubMap;
-    if (ub is List && ub.isNotEmpty && ub.first is Map) {
-      ubMap = (ub.first as Map).cast<String, dynamic>();
-    } else if (ub is Map) {
-      ubMap = (ub).cast<String, dynamic>();
+  Map<String, dynamic>? asSingleMap(dynamic v) {
+    if (v == null) return null;
+    if (v is Map) return (v).cast<String, dynamic>();
+    if (v is List && v.isNotEmpty && v.first is Map) {
+      return (v.first as Map).cast<String, dynamic>();
     }
-
-    String? s(dynamic v) {
-      final t = v?.toString().trim();
-      return (t == null || t.isEmpty) ? null : t;
-    }
-
-    final coverMetaParsed = CoverMeta.fromDb(m);
-    final coverMeta = coverMetaParsed.isUsable ? coverMetaParsed : null;
-
-    return BookDetail(
-      catalogBookId: m['id']?.toString() ?? '',
-      title: (m['title'] ?? '').toString(),
-
-      coverUrl: s(m['cover_url']),
-      cover: coverMeta,
-
-      isbn10: s(m['isbn10']),
-      isbn13: s(m['isbn13']),
-      openLibraryCoverId: s(m['openlibrary_cover_id']),
-
-      pages: m['pages'] is int
-          ? m['pages'] as int
-          : int.tryParse('${m['pages']}'),
-      yearPublished: m['year_published'] is int
-          ? m['year_published'] as int
-          : int.tryParse('${m['year_published']}'),
-      description: m['description']?.toString(),
-
-      exclusiveShelf: ubMap?['exclusive_shelf']?.toString(),
-      myRating: ubMap?['my_rating'] is int
-          ? ubMap!['my_rating'] as int
-          : int.tryParse('${ubMap?['my_rating']}'),
-      dateRead: ubMap?['date_read']?.toString(),
-    );
+    return null;
   }
+
+  final ubMap = asSingleMap(m['user_book']);
+  final mrMap = asSingleMap(m['my_review']); // 👈 nuevo
+
+  String? s(dynamic v) {
+    final t = v?.toString().trim();
+    return (t == null || t.isEmpty) ? null : t;
+  }
+
+  int? i(dynamic v) {
+    if (v == null) return null;
+    if (v is int) return v;
+    return int.tryParse(v.toString());
+  }
+
+  bool? b(dynamic v) {
+    if (v == null) return null;
+    if (v is bool) return v;
+    final t = v.toString().toLowerCase().trim();
+    if (t == 'true') return true;
+    if (t == 'false') return false;
+    return null;
+  }
+
+  final coverMetaParsed = CoverMeta.fromDb(m);
+  final coverMeta = coverMetaParsed.isUsable ? coverMetaParsed : null;
+
+  return BookDetail(
+    catalogBookId: m['id']?.toString() ?? '',
+    title: (m['title'] ?? '').toString(),
+
+    coverUrl: s(m['cover_url']),
+    cover: coverMeta,
+
+    isbn10: s(m['isbn10']),
+    isbn13: s(m['isbn13']),
+    openLibraryCoverId: s(m['openlibrary_cover_id']),
+
+    pages: i(m['pages']),
+    yearPublished: i(m['year_published']),
+    description: m['description']?.toString(),
+
+    exclusiveShelf: s(ubMap?['exclusive_shelf']),
+    myRating: i(ubMap?['my_rating']),
+    dateRead: ubMap?['date_read']?.toString(),
+
+    // 👇 NUEVO: mi review desde book_reviews
+    myReviewRating: i(mrMap?['rating']),
+    myReviewBody: s(mrMap?['body']),
+    myReviewContainsSpoiler: b(mrMap?['contains_spoiler']),
+  );
+}
+
 }

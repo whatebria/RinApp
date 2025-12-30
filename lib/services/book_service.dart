@@ -20,20 +20,32 @@ class BookService {
 
     final items = raw
         .map(BookSearchItem.fromMap)
-        .where((b) => b.catalogBookId.isNotEmpty && b.title.isNotEmpty)
+        // 👇 OJO: ya NO filtramos por catalogBookId porque OpenLibrary puede no traerlo
+        .where((b) => b.title.trim().isNotEmpty && b.sourceId.trim().isNotEmpty)
         .toList();
 
     return items;
   }
 
-  Future<void> add({
-    required BookSearchItem book,
-    String exclusiveShelf = 'to-read',
-  }) async {
-    await _library.addToLibrary(
-      catalogBookId: book.catalogBookId,
-      exclusiveShelf: exclusiveShelf,
-    );
+  /// ✅ Solo asegura un catalog_book_id para poder abrir BookDetail
+  /// NO agrega a user_books.
+  Future<String> ensureCatalogId({required BookSearchItem book}) async {
+    if (book.hasCatalogId) return book.catalogBookId!.trim();
 
+    final titleNorm = (book.titleNorm ?? book.title).toLowerCase().trim();
+
+    return await _library.ensureCatalogBook(
+      source: book.source,
+      sourceId: book.sourceId,
+      title: book.title,
+      titleNorm: titleNorm,
+      isbn10: book.isbn10 ?? '',
+      isbn13: book.isbn13 ?? '',
+      pages: book.pages,
+      yearPublished: book.yearPublished,
+      coverUrl: book.coverUrl ?? '',
+    );
   }
+
+  
 }
