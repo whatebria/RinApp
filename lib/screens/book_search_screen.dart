@@ -1,90 +1,73 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:rin/models/book_search_item.dart';
 import 'package:rin/screens/book_detail_screen.dart';
-import 'package:rin/services/book_service.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../data/datasources/book_remote_datasource.dart';
-import '../../data/repositories/library_repository.dart';
+import '../controller/book_search_controller.dart';
+import '../providers/book_search_provider.dart';
 
-class BookSearchScreen extends StatefulWidget {
+class BookSearchScreen extends StatelessWidget {
   const BookSearchScreen({super.key});
 
   @override
-  State<BookSearchScreen> createState() => _BookSearchScreenState();
-}
-
-class _BookSearchScreenState extends State<BookSearchScreen> {
-  final _controller = TextEditingController();
-  Timer? _debounce;
-
-  late final BookService _bookService;
-
-  bool _loading = false;
-  String? _error;
-  List<BookSearchItem> _items = const [];
-
-  @override
-  void initState() {
-    super.initState();
-    final sb = Supabase.instance.client;
-
-    _bookService = BookService(
-      remote: BookRemoteDatasource(sb),
-      library: LibraryRepository(sb),
+  Widget build(BuildContext context) {
+    return const BookSearchProvider(
+      child: _BookSearchView(),
     );
   }
+}
+
+class _BookSearchView extends StatefulWidget {
+  const _BookSearchView();
+
+  @override
+  State<_BookSearchView> createState() => _BookSearchViewState();
+}
+
+class _BookSearchViewState extends State<_BookSearchView> {
+  final _controller = TextEditingController();
 
   @override
   void dispose() {
-    _debounce?.cancel();
     _controller.dispose();
     super.dispose();
   }
 
-  void _onChanged(String v) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 450), () {
-      final q = v.trim();
-      if (q.isEmpty) {
-        setState(() {
-          _items = const [];
-          _error = null;
-          _loading = false;
-        });
-        return;
-      }
-      _search(q);
-    });
+  void _clear(BookSearchController c) {
+    _controller.clear();
+    c.clearResults();
+    FocusScope.of(context).unfocus();
   }
 
-  Future<void> _search(String q) async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-
+  Future<void> _openDetail(
+    BuildContext context,
+    BookSearchController c,
+    BookSearchItem b,
+  ) async {
     try {
-      final items = await _bookService.search(query: q, limit: 20);
-      if (!mounted) return;
-      setState(() {
-        _items = items;
-        _loading = false;
-      });
+      final catalogId = await c.ensureCatalogId(b);
+      if (!context.mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BookDetailScreen(catalogBookId: catalogId),
+        ),
+      );
     } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.toString();
-        _loading = false;
-      });
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final c = context.watch<BookSearchController>();
+
+    // Mantener el texto del SearchBar consistente si el controller limpió resultados
+    // (no forzamos sync agresivo para evitar loops).
+    final showClear = _controller.text.isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Buscar libros')),
@@ -97,74 +80,49 @@ class _BookSearchScreenState extends State<BookSearchScreen> {
               hintText: 'Busca por título o autor (ej: Dune)',
               leading: const Icon(Icons.search),
               trailing: [
-                if (_controller.text.isNotEmpty)
+                if (showClear)
                   IconButton(
                     icon: const Icon(Icons.close),
-                    onPressed: () {
-                      _controller.clear();
-                      setState(() {
-                        _items = const [];
-                        _error = null;
-                        _loading = false;
-                      });
-                    },
+                    onPressed: () => _clear(c),
                   ),
               ],
-              onChanged: _onChanged,
-              onSubmitted: (v) => _search(v.trim()),
+              onChanged: c.setQuery,
+              onSubmitted: (v) => c.search(v),
             ),
           ),
-          if (_loading) const LinearProgressIndicator(minHeight: 2),
-          if (_error != null)
+          if (c.loading) const LinearProgressIndicator(minHeight: 2),
+          if (c.error != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Text(
-                _error!,
+                c.error!,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.error,
                 ),
               ),
             ),
           Expanded(
-            child: _items.isEmpty
+            child: c.items.isEmpty
                 ? Padding(
                     padding: const EdgeInsets.all(16),
                     child: Text(
-                      _loading
-                          ? 'Buscando...'
-                          : 'Escribe algo para buscar libros.',
+                      c.loading ? 'Buscando...' : 'Escribe algo para buscar libros.',
                       style: theme.textTheme.bodyMedium,
                     ),
                   )
                 : ListView.separated(
-                    itemCount: _items.length,
+                    itemCount: c.items.length,
                     separatorBuilder: (_, __) => const Divider(height: 1),
                     itemBuilder: (context, i) {
-                      final b = _items[i];
+                      final b = c.items[i];
+
                       final subtitleParts = <String>[];
-                      if (b.yearPublished != null) {
-                        subtitleParts.add('${b.yearPublished}');
-                      }
-                      if (b.isbn13 != null) {
-                        subtitleParts.add('ISBN13: ${b.isbn13}');
-                      }
+                      if (b.yearPublished != null) subtitleParts.add('${b.yearPublished}');
+                      if (b.isbn13 != null) subtitleParts.add('ISBN13: ${b.isbn13}');
                       final subtitle = subtitleParts.join(' • ');
 
                       return ListTile(
-                        onTap: () async {
-                          final catalogId = await _bookService.ensureCatalogId(
-                            book: b,
-                          );
-                          if (!context.mounted) return;
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  BookDetailScreen(catalogBookId: catalogId),
-                            ),
-                          );
-                        },
-
+                        onTap: () => _openDetail(context, c, b),
                         leading: (b.coverUrl != null && b.coverUrl!.isNotEmpty)
                             ? ClipRRect(
                                 borderRadius: BorderRadius.circular(8),
