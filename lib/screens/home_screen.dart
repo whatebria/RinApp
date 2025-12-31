@@ -4,9 +4,7 @@ import 'package:rin/controller/profile_controller.dart';
 import 'package:rin/screens/book_search_screen.dart';
 import 'package:rin/screens/friends_screen.dart';
 import 'package:rin/screens/my_library_screen.dart';
-import 'package:rin/screens/profile/edit_profile_screen.dart';
 import 'package:rin/screens/settings/settings_screen.dart';
-import 'goodreads_import_screen.dart';
 import 'profile/profile_setup_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -23,7 +21,6 @@ class _HomeScreenState extends State<HomeScreen> {
     MyLibraryScreen(),
     BookSearchScreen(),
     FriendsScreen(),
-    GoodreadsImportScreen(),
     SettingsScreen(),
   ];
 
@@ -31,7 +28,6 @@ class _HomeScreenState extends State<HomeScreen> {
     NavigationDestination(icon: Icon(Icons.list_alt), label: 'Mi libreria'),
     NavigationDestination(icon: Icon(Icons.search), label: 'Buscar libros'),
     NavigationDestination(icon: Icon(Icons.people), label: 'Social'),
-    NavigationDestination(icon: Icon(Icons.upload_file), label: 'Importar'),
     NavigationDestination(icon: Icon(Icons.person), label: 'Settings'),
   ];
 

@@ -23,7 +23,7 @@ class ProfileRepository {
         .select(select)
         .single();
 
-    return (inserted as Map<String, dynamic>);
+    return inserted;
   }
 
   Future<Map<String, dynamic>> updateById({
@@ -38,7 +38,7 @@ class ProfileRepository {
         .select(select)
         .single();
 
-    return (updated as Map<String, dynamic>);
+    return updated;
   }
 
   Future<Map<String, dynamic>?> fetchByFriendCode({

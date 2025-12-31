@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:rin/controller/profile_controller.dart';
 import 'package:rin/models/profile_draft.dart';
 

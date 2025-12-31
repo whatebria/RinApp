@@ -23,16 +23,11 @@ class _MyLibraryView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.watch<MyLibraryController>();
-    final entries = context
-        .select<
-          MyLibraryController,
-          List<MapEntry<String, List<MyLibraryItem>>>
-        >((c) => c.itemsByShelf.entries.toList(growable: false));
 
     final loading = context.select<MyLibraryController, bool>((c) => c.loading);
     final error = context.select<MyLibraryController, String?>((c) => c.error);
-    final hasItems = context.select<MyLibraryController, bool>(
-      (c) => c.items.isNotEmpty,
+    final hasLoaded = context.select<MyLibraryController, bool>(
+      (c) => c.hasLoaded,
     );
 
     return Scaffold(
@@ -45,63 +40,77 @@ class _MyLibraryView extends StatelessWidget {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: c.refresh,
-        child: loading && hasItems
-            ? const Center(child: CircularProgressIndicator())
-            : error != null
-            ? ListView(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text('Error: ${error}'),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: OutlinedButton(
-                      onPressed: c.load,
-                      child: const Text('Reintentar'),
-                    ),
-                  ),
-                ],
-              )
-            : entries.isEmpty
-            ? ListView(
-                children: const [
-                  Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text('Aún no tienes libros agregados.'),
-                  ),
-                ],
-              )
-            : ListView.separated(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                itemCount: entries.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, i) {
-                  final entry = entries[i];
-                  final shelfName = entry.key;
-                  final list = entry.value;
+      body: Builder(
+        builder: (_) {
+          if (!hasLoaded || loading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final entries = c.itemsByShelf.entries.toList(growable: false);
 
-                  return _ShelfSection(
-                    shelfName: shelfName,
-                    items: list,
-                    onOpen: () {
-                      final controller = context.read<MyLibraryController>();
 
-                      Navigator.push(
-                        context,
-                        CupertinoPageRoute(
-                          builder: (_) => ChangeNotifierProvider.value(
-                            value: controller,
-                            child: ShelfDetailScreen(shelfName: shelfName),
-                          ),
+          // ✅ 2) Error
+          if (error != null) {
+            return ListView(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text('Error: $error'),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: OutlinedButton(
+                    onPressed: c.load,
+                    child: const Text('Reintentar'),
+                  ),
+                ),
+              ],
+            );
+          }
+
+          // ✅ 3) Vacío real (ya cargó y no hay shelves)
+          if (entries.isEmpty) {
+            return ListView(
+              children: const [
+                Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('Aún no tienes libros agregados.'),
+                ),
+              ],
+            );
+          }
+
+          // ✅ 4) Contenido
+          return RefreshIndicator(
+            onRefresh: c.refresh,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              itemCount: entries.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (context, i) {
+                final entry = entries[i];
+                final shelfName = entry.key;
+                final list = entry.value;
+
+                return _ShelfSection(
+                  shelfName: shelfName,
+                  items: list,
+                  onOpen: () {
+                    final controller = context.read<MyLibraryController>();
+                    Navigator.push(
+                      context,
+                      CupertinoPageRoute(
+                        builder: (_) => ChangeNotifierProvider.value(
+                          value: controller,
+                          child: ShelfDetailScreen(shelfName: shelfName),
                         ),
-                      );
-                    },
-                  );
-                },
-              ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          );
+        },
       ),
     );
   }

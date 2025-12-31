@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:rin/controller/profile_controller.dart';
 import 'package:rin/models/profile_draft.dart';
-import 'package:rin/screens/home_screen.dart';
 import 'package:rin/screens/widgets/auth_gate.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
@@ -168,7 +167,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
             // --- Opcional ---
             DropdownButtonFormField<String?>(
-              value: _pronouns,
+              initialValue: _pronouns,
               items: pronounOptions
                   .map(
                     (p) => DropdownMenuItem(

@@ -25,7 +25,7 @@ class _ReviewsHeader extends StatelessWidget {
             const Spacer(),
             FilledButton(
               onPressed: onTapWrite,
-              child: Text(myRating == null ? "Escribir review" : "Editar mi review (${myRating}⭐)"),
+              child: Text(myRating == null ? "Escribir review" : "Editar mi review ($myRating⭐)"),
             ),
           ],
         ),

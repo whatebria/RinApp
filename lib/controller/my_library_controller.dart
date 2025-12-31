@@ -9,6 +9,9 @@ class MyLibraryController extends ChangeNotifier {
   bool _loading = false;
   bool get loading => _loading;
 
+  bool _hasLoaded = false;
+  bool get hasLoaded => _hasLoaded;
+
   String? _error;
   String? get error => _error;
 
@@ -23,6 +26,11 @@ class MyLibraryController extends ChangeNotifier {
   Future<void> load() async {
     _loading = true;
     _error = null;
+
+    // Opcional: evita “pantalla vacía” mostrando spinner en vez de vacío
+    _items = const [];
+    _itemsByShelf = const {};
+
     notifyListeners();
 
     try {
@@ -33,6 +41,7 @@ class MyLibraryController extends ChangeNotifier {
       _error = e.toString();
     } finally {
       _loading = false;
+      _hasLoaded = true;
       notifyListeners();
     }
   }
@@ -41,7 +50,9 @@ class MyLibraryController extends ChangeNotifier {
 
   int countForShelf(String shelf) => _itemsByShelf[shelf]?.length ?? 0;
 
-  static Map<String, List<MyLibraryItem>> _buildItemsByShelf(List<MyLibraryItem> items) {
+  static Map<String, List<MyLibraryItem>> _buildItemsByShelf(
+    List<MyLibraryItem> items,
+  ) {
     final map = <String, List<MyLibraryItem>>{};
     for (final x in items) {
       final shelf = (x.exclusiveShelf?.trim().isNotEmpty ?? false)
@@ -67,42 +78,4 @@ class MyLibraryController extends ChangeNotifier {
 
     return {for (final k in keys) k: map[k]!};
   }
-}
-
-
-extension MyLibraryControllerShelves on MyLibraryController {
-  /// Nombre “bonito” cuando no hay estantería
-  static const String kNoShelfLabel = 'Sin estantería';
-
-  /// Devuelve un map ordenado: shelfName -> items
-  Map<String, List<MyLibraryItem>> get itemsByShelf {
-    final map = <String, List<MyLibraryItem>>{};
-
-    for (final x in items) {
-      final shelf =
-          (x.exclusiveShelf != null && x.exclusiveShelf!.trim().isNotEmpty)
-          ? x.exclusiveShelf!.trim()
-          : kNoShelfLabel;
-
-      map.putIfAbsent(shelf, () => <MyLibraryItem>[]).add(x);
-    }
-
-    // Orden: “to-read / reading / read” primero si existen, luego alfabético,
-    // y "Sin estantería" al final.
-    const preferred = ['to-read', 'reading', 'read'];
-    final keys = map.keys.toList();
-
-    int rank(String k) {
-      if (k == kNoShelfLabel) return 9999;
-      final idx = preferred.indexOf(k);
-      if (idx != -1) return idx;
-      return 100 + k.toLowerCase().codeUnits.fold(0, (a, b) => a + b);
-    }
-
-    keys.sort((a, b) => rank(a).compareTo(rank(b)));
-
-    return {for (final k in keys) k: map[k]!};
-  }
-
-  int countForShelf(String shelf) => itemsByShelf[shelf]?.length ?? 0;
 }

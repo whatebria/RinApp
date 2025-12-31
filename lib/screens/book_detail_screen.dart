@@ -84,7 +84,7 @@ class _BookDetailView extends StatelessWidget {
                               FilledButton.icon(
                                 onPressed: () => _pickShelf(context),
                                 icon: const Icon(Icons.bookmark_outline),
-                                label: const Text('Cambiar estante'),
+                                label: const Text('Agregar a una lista'),
                               ),
                               OutlinedButton.icon(
                                 onPressed: () => _pickRating(context),

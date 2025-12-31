@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import 'package:rin/controller/profile_controller.dart';
 import 'package:rin/screens/profile/edit_profile_screen.dart';
+import 'package:rin/screens/settings/goodreads_import_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -84,6 +85,20 @@ class SettingsScreen extends StatelessWidget {
             subtitle: const Text('Vista pública (opcional)'),
             onTap: () {
               // Más adelante: ProfileScreen público (solo lectura)
+            },
+          ),
+
+          const Divider(),
+
+          ListTile(
+            leading: const Icon(Icons.import_contacts),
+            title: const Text('Importar desde Goodreads'),
+            subtitle: const Text('Trae tus libros y estanterías'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const GoodreadsImportScreen()),
+              );
             },
           ),
 

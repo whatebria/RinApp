@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:rin/utils/lib/di.dart';
 
 import '../controller/my_code_controller.dart';
-import '../services/profile_service.dart';
 
 class MyCodeProvider extends StatelessWidget {
   const MyCodeProvider({

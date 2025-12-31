@@ -29,7 +29,7 @@ class ShelfDetailScreen extends StatelessWidget {
     final list = all.where((x) {
       final s = (x.exclusiveShelf != null && x.exclusiveShelf!.trim().isNotEmpty)
           ? x.exclusiveShelf!.trim()
-          : MyLibraryControllerShelves.kNoShelfLabel;
+          : MyLibraryController.kNoShelfLabel;
       return s == shelfName;
     }).toList();
 
